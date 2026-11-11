@@ -1,0 +1,472 @@
+<?php
+session_start();
+
+require_once "../config/db.php";
+
+/*
+|--------------------------------------------------------------------------
+| Get Movies
+|--------------------------------------------------------------------------
+| We use SELECT * so this page will not fail because of optional columns.
+| Your existing movies table is used.
+*/
+
+$sql = "SELECT * FROM movies ORDER BY movie_id DESC";
+$result = mysqli_query($conn, $sql);
+
+if (!$result) {
+    die("Movie loading error: " . mysqli_error($conn));
+}
+
+$movies = [];
+
+while ($row = mysqli_fetch_assoc($result)) {
+    $movies[] = $row;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Helper function
+|--------------------------------------------------------------------------
+| Supports common column names in case your existing table uses
+| title/movie_name, language/movie_language etc.
+*/
+
+function getMovieValue($movie, $names, $default = "")
+{
+    foreach ($names as $name) {
+        if (isset($movie[$name]) && $movie[$name] !== "") {
+            return $movie[$name];
+        }
+    }
+
+    return $default;
+}
+
+function getMovieId($movie)
+{
+    if (isset($movie['movie_id'])) {
+        return $movie['movie_id'];
+    }
+
+    if (isset($movie['id'])) {
+        return $movie['id'];
+    }
+
+    return 0;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Language Filter
+|--------------------------------------------------------------------------
+*/
+
+$selectedLanguage = $_GET['language'] ?? 'all';
+
+if (!in_array($selectedLanguage, ['all', 'Tamil', 'English'])) {
+    $selectedLanguage = 'all';
+}
+
+$filteredMovies = [];
+
+foreach ($movies as $movie) {
+
+    $language = getMovieValue(
+        $movie,
+        ['language', 'movie_language', 'lang'],
+        ''
+    );
+
+    if ($selectedLanguage === 'all') {
+        $filteredMovies[] = $movie;
+    } elseif (strcasecmp(trim($language), $selectedLanguage) === 0) {
+        $filteredMovies[] = $movie;
+    }
+}
+
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Movies | CineBook</title>
+
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+
+<body>
+
+<!-- =========================================================
+     NAVBAR
+========================================================= -->
+
+<header class="main-header">
+
+    <div class="nav-container">
+
+        <a href="../user/dashboard.php" class="brand">
+            <span>CINE</span><strong>BOOK</strong>
+        </a>
+
+        <nav class="main-nav">
+
+            <a href="../user/dashboard.php">
+                Home
+            </a>
+
+            <a href="index.php" class="active">
+                Movies
+            </a>
+
+            <a href="../user/bookings.php">
+                My Bookings
+            </a>
+
+            <a href="../user/profile.php">
+                Profile
+            </a>
+
+            <a href="../auth/logout.php" class="logout-link">
+                Logout
+            </a>
+
+        </nav>
+
+    </div>
+
+</header>
+
+
+<!-- =========================================================
+     PAGE HERO
+========================================================= -->
+
+<section class="movies-hero">
+
+    <div class="movies-hero-content">
+
+        <span class="small-label">
+            CINEBOOK MOVIES
+        </span>
+
+        <h1>
+            Find your next
+            <span>favourite movie.</span>
+        </h1>
+
+        <p>
+            Browse Tamil and English movies and book your seats
+            in just a few clicks.
+        </p>
+
+    </div>
+
+</section>
+
+
+<!-- =========================================================
+     MOVIES SECTION
+========================================================= -->
+
+<main class="movies-page">
+
+    <div class="movies-heading">
+
+        <div>
+            <span class="section-label">
+                NOW SHOWING
+            </span>
+
+            <h2>
+                Movies
+            </h2>
+
+            <p>
+                Choose a language and explore available movies.
+            </p>
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         LANGUAGE FILTER
+    ====================================================== -->
+
+    <div class="language-filter">
+
+        <a
+            href="index.php?language=all"
+            class="language-btn
+            <?php echo ($selectedLanguage === 'all') ? 'selected' : ''; ?>"
+        >
+            All Movies
+        </a>
+
+        <a
+            href="index.php?language=Tamil"
+            class="language-btn
+            <?php echo ($selectedLanguage === 'Tamil') ? 'selected' : ''; ?>"
+        >
+            Tamil
+        </a>
+
+        <a
+            href="index.php?language=English"
+            class="language-btn
+            <?php echo ($selectedLanguage === 'English') ? 'selected' : ''; ?>"
+        >
+            English
+        </a>
+
+    </div>
+
+
+    <!-- =====================================================
+         MOVIE COUNT
+    ====================================================== -->
+
+    <div class="movie-result-info">
+
+        <span>
+            <?php echo count($filteredMovies); ?>
+            movie<?php echo count($filteredMovies) != 1 ? 's' : ''; ?>
+            found
+        </span>
+
+        <?php if ($selectedLanguage !== 'all'): ?>
+
+            <span class="current-filter">
+                <?php echo htmlspecialchars($selectedLanguage); ?>
+            </span>
+
+        <?php endif; ?>
+
+    </div>
+
+
+    <!-- =====================================================
+         MOVIE GRID
+    ====================================================== -->
+
+    <?php if (count($filteredMovies) > 0): ?>
+
+        <div class="movies-grid">
+
+            <?php foreach ($filteredMovies as $movie): ?>
+
+                <?php
+
+                $movieId = getMovieId($movie);
+
+                $title = getMovieValue(
+                    $movie,
+                    ['title', 'movie_name', 'name'],
+                    'Untitled Movie'
+                );
+
+                $language = getMovieValue(
+                    $movie,
+                    ['language', 'movie_language', 'lang'],
+                    'Unknown'
+                );
+
+                $genre = getMovieValue(
+                    $movie,
+                    ['genre', 'movie_genre'],
+                    'Movie'
+                );
+
+                $duration = getMovieValue(
+                    $movie,
+                    ['duration', 'movie_duration'],
+                    ''
+                );
+
+                $releaseDate = getMovieValue(
+                    $movie,
+                    ['release_date', 'releaseDate'],
+                    ''
+                );
+
+                $description = getMovieValue(
+                    $movie,
+                    ['description', 'movie_description'],
+                    'Enjoy this movie at CineBook.'
+                );
+
+                ?>
+
+                <article class="movie-card">
+
+                    <!-- No image required -->
+
+                    <div class="movie-card-top">
+
+                        <span class="movie-language">
+                            <?php echo htmlspecialchars($language); ?>
+                        </span>
+
+                        <span class="movie-symbol">
+                            C
+                        </span>
+
+                    </div>
+
+
+                    <div class="movie-card-body">
+
+                        <div class="movie-category">
+                            <?php echo htmlspecialchars($genre); ?>
+                        </div>
+
+                        <h3>
+                            <?php echo htmlspecialchars($title); ?>
+                        </h3>
+
+                        <p class="movie-description">
+                            <?php echo htmlspecialchars($description); ?>
+                        </p>
+
+
+                        <div class="movie-details">
+
+                            <?php if ($duration !== ''): ?>
+
+                                <span>
+                                    ⏱
+                                    <?php echo htmlspecialchars($duration); ?>
+                                </span>
+
+                            <?php endif; ?>
+
+
+                            <?php if ($releaseDate !== ''): ?>
+
+                                <span>
+                                    📅
+                                    <?php echo htmlspecialchars($releaseDate); ?>
+                                </span>
+
+                            <?php endif; ?>
+
+                        </div>
+
+
+                        <div class="movie-card-footer">
+
+                            <a
+                                href="../booking/select-show.php?movie_id=<?php echo urlencode($movieId); ?>"
+                                class="book-button"
+                            >
+                                Book Now
+                                <span>→</span>
+                            </a>
+
+                        </div>
+
+                    </div>
+
+                </article>
+
+            <?php endforeach; ?>
+
+        </div>
+
+
+    <?php else: ?>
+
+        <!-- =================================================
+             EMPTY STATE
+        ================================================== -->
+
+        <div class="empty-movies">
+
+            <div class="empty-icon">
+                🎬
+            </div>
+
+            <h3>
+                No movies found
+            </h3>
+
+            <p>
+                There are no
+                <?php echo htmlspecialchars($selectedLanguage); ?>
+                movies available right now.
+            </p>
+
+            <a href="index.php" class="back-movies-btn">
+                View All Movies
+            </a>
+
+        </div>
+
+    <?php endif; ?>
+
+</main>
+
+
+<!-- =========================================================
+     FOOTER
+========================================================= -->
+
+<footer class="main-footer">
+
+    <div class="footer-container">
+
+        <div class="footer-brand">
+
+            <a href="../user/dashboard.php" class="brand">
+                <span>CINE</span><strong>BOOK</strong>
+            </a>
+
+            <p>
+                Your simple and comfortable movie booking experience.
+            </p>
+
+        </div>
+
+
+        <div class="footer-links">
+
+            <a href="../user/dashboard.php">
+                Home
+            </a>
+
+            <a href="index.php">
+                Movies
+            </a>
+
+            <a href="../user/bookings.php">
+                Bookings
+            </a>
+
+            <a href="../user/profile.php">
+                Profile
+            </a>
+
+        </div>
+
+    </div>
+
+
+    <div class="footer-bottom">
+
+        <p>
+            © <?php echo date('Y'); ?> CineBook. All rights reserved.
+        </p>
+
+    </div>
+
+</footer>
+
+</body>
+</html>
